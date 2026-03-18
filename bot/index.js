@@ -1,6 +1,15 @@
 import { Telegraf, Markup } from 'telegraf';
 import { message } from 'telegraf/filters';
 
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const app = express();
+
+app.use(express.json());
+
+const STATS_FILE = path.join(__dirname, 'stats.json');
+
 // --- Конфигурация (ЗАМЕНИ НА СВОИ ДАННЫЕ) ---
 const BOT_TOKEN = '7685117804:AAH7TwiEjqpbHprCDpO-0-DI8yL52fDFndk'; // Вставь свой токен
 // !!! ВАЖНО: После деплоя фронтенда вставь сюда ссылку на GitHub Pages !!!
@@ -39,29 +48,37 @@ process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 // Эндпоинт для Django
-app.post('/update-balance', (req, res) => {
+app.post('/api/deduct-coins', (req, res) => {
     const { telegram_id, amount, secret_key } = req.body;
 
-    if (secret_key !== '7685117804:AAH7TwiEjqpbHprCDpO-0-DI8yL52fDFndk') return res.status(403).send('Forbidden');
+    // Проверка безопасности (тот же ключ, что в Django)
+    if (secret_key !== BOT_TOKEN) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
 
-    // Логика списания монет в твоем stats.json (или другой БД)
     try {
-        const stats = JSON.parse(fs.readFileSync('./stats.json', 'utf8'));
-        
-        // Находим юзера и отнимаем монеты
-        if (stats[telegram_id]) {
-            stats[telegram_id].coins -= amount;
-            fs.writeFileSync('./stats.json', JSON.stringify(stats, null, 2));
+        // 1. Читаем текущие статы
+        let stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+
+        // 2. Ищем юзера и вычитаем монеты
+        const userId = String(telegram_id);
+        if (stats[userId]) {
+            stats[userId].coins = (stats[userId].coins || 0) - amount;
             
-            // ОПЦИОНАЛЬНО: Отправляем сообщение юзеру через бота
-            bot.telegram.sendMessage(telegram_id, `💳 Списано ${amount} PZK за покупку скидки на сайте!`);
+            // 3. Сохраняем обратно в stats.json
+            fs.writeFileSync(STATS_FILE, JSON.stringify(stats, null, 2));
             
-            return res.send({ status: 'ok' });
+            console.log(`[Shop] Вычли ${amount} монет у ${userId}. Остаток: ${stats[userId].coins}`);
+            return res.json({ success: true, new_balance: stats[userId].coins });
         }
-        res.status(404).send('User not found');
-    } catch (e) {
-        res.status(500).send('Error updating stats.json');
+        
+        res.status(404).json({ error: 'User not found' });
+    } catch (err) {
+        res.status(500).json({ error: 'Database error' });
     }
 });
 
-app.listen(3001, () => console.log('Bot API listener on port 3001'));
+// Запускаем API бота на порту 3001
+app.listen(3001, () => {
+    console.log('API для связи с Django запущено на порту 3001');
+});
