@@ -22,7 +22,9 @@ async function syncProgressWithDatabase(coins) {
     if (!user || coins === undefined) return;
 
     try {
-        await fetch('http://localhost:8000/api/sync-coins/', {
+        const url = 'https://4c5b-50-7-176-138.ngrok-free.app';
+
+        await fetch(`${url}/api/sync-coins/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
