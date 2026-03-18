@@ -5,7 +5,7 @@ tg.ready();
 tg.expand();
 
 // GitHub Configuration - имя секрета изменено
-const GITHUB_REPO = 'PriZroK5/pzk-clicker-tma';
+const GITHUB_REPO = 'MishaelBoss/test_bot';
 const GITHUB_FILE_PATH = 'stats.json';
 
 // Функция для получения токена (будет подменяться при сборке)
