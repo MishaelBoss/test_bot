@@ -37,3 +37,31 @@ bot.launch().then(() => {
 // --- Graceful stop ---
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+// Эндпоинт для Django
+app.post('/update-balance', (req, res) => {
+    const { telegram_id, amount, secret_key } = req.body;
+
+    if (secret_key !== '7685117804:AAH7TwiEjqpbHprCDpO-0-DI8yL52fDFndk') return res.status(403).send('Forbidden');
+
+    // Логика списания монет в твоем stats.json (или другой БД)
+    try {
+        const stats = JSON.parse(fs.readFileSync('./stats.json', 'utf8'));
+        
+        // Находим юзера и отнимаем монеты
+        if (stats[telegram_id]) {
+            stats[telegram_id].coins -= amount;
+            fs.writeFileSync('./stats.json', JSON.stringify(stats, null, 2));
+            
+            // ОПЦИОНАЛЬНО: Отправляем сообщение юзеру через бота
+            bot.telegram.sendMessage(telegram_id, `💳 Списано ${amount} PZK за покупку скидки на сайте!`);
+            
+            return res.send({ status: 'ok' });
+        }
+        res.status(404).send('User not found');
+    } catch (e) {
+        res.status(500).send('Error updating stats.json');
+    }
+});
+
+app.listen(3001, () => console.log('Bot API listener on port 3001'));
